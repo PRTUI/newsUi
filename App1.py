@@ -2,16 +2,10 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 
-# Default layout with dark mode
+# Set default layout and title
 st.set_page_config(page_title="12OAD Status")
 
-# Page heading
-st.markdown("### Related Products by Industry → **12OAD Status**")
-
-# Tabs
-tabs = st.tabs(["Live Updates", "Leaves", "Upgrade"])
-
-# Styling for clean, professional font and layout
+# Styling: Dark mode + professional fonts
 st.markdown("""
     <style>
         .stApp {
@@ -45,9 +39,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# DB path
+# Heading
+st.markdown("### Related Products by Industry → **12OAD Status**")
+
+# DB file path
 db_path = "status_feed.db"
 
+# Function to render entries for a tab
 def render_timeline(tab_key):
     try:
         conn = sqlite3.connect(db_path)
@@ -76,8 +74,49 @@ def render_timeline(tab_key):
     except Exception as e:
         st.error("⚠️ Could not load or query `status_feed.db`.")
 
+# Tabs
+tabs = st.tabs(["Live Updates", "Leaves", "Upgrade", "➕ Add Entry"])
 
-# Render each tab
-with tabs[0]: st.subheader("Live Updates"); render_timeline("live")
-with tabs[1]: st.subheader("Leaves"); render_timeline("leaves")
-with tabs[2]: st.subheader("Upgrade"); render_timeline("upgrade")
+# --- Tab 1: Live Updates ---
+with tabs[0]:
+    st.subheader("Live Updates")
+    render_timeline("live")
+
+# --- Tab 2: Leaves ---
+with tabs[1]:
+    st.subheader("Leaves")
+    render_timeline("leaves")
+
+# --- Tab 3: Upgrade ---
+with tabs[2]:
+    st.subheader("Upgrade")
+    render_timeline("upgrade")
+
+# --- Tab 4: Add Entry ---
+with tabs[3]:
+    st.subheader("Add New Entry to Timeline")
+
+    with st.form("add_entry_form"):
+        tab_choice = st.selectbox("Select Tab", ["live", "leaves", "upgrade"])
+        log_date = st.date_input("Date")
+        log_time = st.text_input("Time (e.g., 14:30 hrs)")
+        red_text = st.text_area("Red Text (leave blank if not applicable)")
+        normal_text = st.text_area("Normal Text (leave blank if not applicable)")
+        submitted = st.form_submit_button("Submit")
+
+        if submitted:
+            if not log_time or (not red_text and not normal_text):
+                st.warning("Please provide at least time and one message (red or normal).")
+            else:
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (tab_choice, log_date.isoformat(), log_time, red_text.strip(), normal_text.strip()))
+                    conn.commit()
+                    conn.close()
+                    st.success("✅ Entry added successfully!")
+                except Exception as e:
+                    st.error(f"❌ Failed to add entry: {e}")
