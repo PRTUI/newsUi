@@ -4,7 +4,7 @@ import pandas as pd
 
 # Default (narrow) layout, dark mode styling manually applied
 st.set_page_config(page_title="12OAD Status")
-st.markdown("### Related Products by Industry → **12OAD Status**")
+st.markdown("**12OAD Status**")
 
 # Optional: Force dark theme styling via custom CSS
 st.markdown(
