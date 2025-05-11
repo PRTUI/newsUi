@@ -68,7 +68,7 @@ def render_timeline(tab_key):
 
 
 # Render content for each tab
-with tabs[0]: st.subheader("Live Updates"); render_timeline("live")
+with tabs[0]: render_timeline("live")
 with tabs[1]: st.subheader("Leaves"); render_timeline("leaves")
 with tabs[2]: st.subheader("Upgrade"); render_timeline("upgrade")
 
