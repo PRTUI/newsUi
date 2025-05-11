@@ -2,35 +2,38 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 
-# Page Setup
-st.set_page_config(layout="wide")
-st.markdown("**12OAD Status**")
+# Default (narrow) layout, dark mode styling manually applied
+st.set_page_config(page_title="12OAD Status")
+st.markdown("### Related Products by Industry → **12OAD Status**")
+
+# Optional: Force dark theme styling via custom CSS
+st.markdown(
+    """
+    <style>
+        .stApp {
+            background-color: #0e1117;
+            color: white;
+        }
+        .stMarkdown, .stText {
+            color: white;
+        }
+    </style>
+    """, unsafe_allow_html=True
+)
 
 # Tabs
 tabs = st.tabs(["Live Updates", "Leaves", "Upgrade"])
 
-# --- Live Updates Tab ---
-with tabs[0]:
-    #st.subheader("Live Updates")
-    products = [
-        {"desc": "10MHz, Quad, Precision Op Amp"},
-        {"desc": "30V Input, 1A Output, Synchronous Buck Regulator"},
-        {"desc": "ATA6560"},
-        {"desc": "MIC4605 Half-Bridge Driver"},
-    ]
-    for product in products:
-        with st.container():
-            st.markdown(product["desc"])
-            st.markdown("---")
+# DB path
+db_path = "status_feed.db"
 
-# --- Leaves Tab ---
-with tabs[1]:
-    st.subheader("Leaves")
-
+def render_timeline(tab_key):
     try:
-        # Connect to SQLite DB
-        conn = sqlite3.connect("leaves.db")
-        df = pd.read_sql_query("SELECT * FROM leaves_log ORDER BY log_date DESC, log_time DESC", conn)
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql_query(
+            f"SELECT * FROM status_log WHERE tab = '{tab_key}' ORDER BY log_date DESC, log_time DESC", conn
+        )
+        conn.close()
 
         current_date = None
         for _, row in df.iterrows():
@@ -50,7 +53,7 @@ with tabs[1]:
                     """,
                     unsafe_allow_html=True
                 )
-            else:
+            elif row['normal_text']:
                 st.markdown(
                     f"""
                     <div style="background-color:#111; color:white; padding:10px; margin-bottom:5px;">
@@ -60,13 +63,13 @@ with tabs[1]:
                     unsafe_allow_html=True
                 )
 
-        conn.close()
-
     except Exception as e:
-        st.error("⚠️ SQLite database `leaves.db` is missing or cannot be loaded.")
+        st.error("⚠️ Could not load or query `status_feed.db`.")
 
-# --- Upgrade Tab ---
-with tabs[2]:
-    st.subheader("Upgrade")
-    st.write("Access premium folders, features, and analytics.")
+
+# Render content for each tab
+with tabs[0]: st.subheader("Live Updates"); render_timeline("live")
+with tabs[1]: st.subheader("Leaves"); render_timeline("leaves")
+with tabs[2]: st.subheader("Upgrade"); render_timeline("upgrade")
+
 
