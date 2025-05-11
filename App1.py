@@ -1,15 +1,13 @@
 import streamlit as st
 import sqlite3
-import pandas as pd
 from datetime import datetime
 from pytz import timezone
 
-# Setup
-st.set_page_config(page_title=" Status")
-st.markdown("### Related Products by Industry → ** Status**")
+st.set_page_config(page_title="12OAD Status")
+st.markdown("### Related Products by Industry → **12OAD Status**")
 
 # DB path
-db_path = "status_feed_v2.db"
+db_path = "status_feed_minimal.db"
 
 # CSS Styling
 st.markdown("""
@@ -20,18 +18,17 @@ st.markdown("""
             font-family: 'Segoe UI', sans-serif;
         }
         .log-entry {
+            background-color: #1e1e1e;
+            border-radius: 8px;
             padding: 10px;
-            margin-bottom: 8px;
-            border-radius: 4px;
+            margin-bottom: 10px;
             font-size: 15px;
         }
         .log-red {
-            background-color: #D32F2F;
-            color: white;
+            background-color: #D32F2F !important;
         }
         .log-normal {
-            background-color: #1e1e1e;
-            color: white;
+            background-color: #1e1e1e !important;
         }
         .log-date {
             background: white;
@@ -44,74 +41,68 @@ st.markdown("""
         }
         .author-row {
             font-size: 12px;
-            color: #cccccc;
+            color: #ccc;
             margin-top: 6px;
             display: flex;
-            align-items: center;
-            gap: 12px;
+            justify-content: space-between;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Load entries
+# --- DB logic ---
+def delete_entry(message_id):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM status_log WHERE id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+    st.success("✅ Deleted successfully.")
+    st.experimental_rerun()
+
 def render_timeline(tab_key):
-    try:
-        conn = sqlite3.connect(db_path)
-        df = pd.read_sql_query(
-            f"SELECT * FROM status_log WHERE tab = '{tab_key}' ORDER BY log_date DESC, log_time DESC, id DESC", conn
-        )
-        conn.close()
+    conn = sqlite3.connect(db_path)
+    df = conn.execute(
+        f"SELECT * FROM status_log WHERE tab = ? ORDER BY log_date DESC, log_time DESC, id DESC", (tab_key,)
+    ).fetchall()
+    conn.close()
 
-        current_date = None
-        for _, row in df.iterrows():
-            if row['log_date'] != current_date:
-                current_date = row['log_date']
-                st.markdown(f"<div class='log-date'>{current_date}</div>", unsafe_allow_html=True)
+    current_date = None
+    for row in df:
+        message_id, tab, log_date, log_time, red_text, normal_text, name = row
+        message = red_text if red_text else normal_text
+        style_class = "log-red" if red_text else "log-normal"
 
-            message = row['red_text'] or row['normal_text']
-            style_class = "log-red" if row['red_text'] else "log-normal"
+        if log_date != current_date:
+            current_date = log_date
+            st.markdown(f"<div class='log-date'>{log_date}</div>", unsafe_allow_html=True)
 
-            col1, col2 = st.columns([0.95, 0.05])
-            with col1:
-                st.markdown(
-                    f"""
-                    <div class='log-entry {style_class}'>
-                        <b>{row['log_time']}:</b> {message}
-                        <div class='author-row'>
-                            <span>{row['name']}</span>
-                            <span>{row['emoji'] or ''}</span>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            with col2:
-                if st.button("✖", key=f"del_{row['id']}", help="Delete"):
-                    delete_entry(row['id'])
+        st.markdown(f"<div class='log-entry {style_class}'>", unsafe_allow_html=True)
+        st.markdown(f"<b>{log_time}:</b> {message}", unsafe_allow_html=True)
 
-    except Exception as e:
-        st.error("⚠️ Could not load or query the database.")
+        col1, col2 = st.columns([0.9, 0.1])
+        with col1:
+            st.markdown(f"<div class='author-row'><span>{name}</span></div>", unsafe_allow_html=True)
+        with col2:
+            if st.button("✖", key=f"del_{message_id}"):
+                delete_entry(message_id)
 
-def delete_entry(entry_id):
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM status_log WHERE id = ?", (entry_id,))
-        conn.commit()
-        conn.close()
-        st.success("🗑️ Entry deleted successfully.")
-        st.experimental_rerun()
-    except Exception as e:
-        st.error(f"❌ Failed to delete entry: {e}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Tabs
+# --- Tabs ---
 tabs = st.tabs(["Live Updates", "Leaves", "Upgrade", "➕ Add Entry"])
 
-with tabs[0]: st.subheader("Live Updates"); render_timeline("live")
-with tabs[1]: st.subheader("Leaves"); render_timeline("leaves")
-with tabs[2]: st.subheader("Upgrade"); render_timeline("upgrade")
+with tabs[0]:
+    st.subheader("Live Updates")
+    render_timeline("live")
 
-# Add Entry with emoji toggle
+with tabs[1]:
+    st.subheader("Leaves")
+    render_timeline("leaves")
+
+with tabs[2]:
+    st.subheader("Upgrade")
+    render_timeline("upgrade")
+
 with tabs[3]:
     st.subheader("Add New Entry")
 
@@ -120,32 +111,22 @@ with tabs[3]:
         red_text = st.text_area("Red Text (optional)")
         normal_text = st.text_area("Normal Text (optional)")
         name = st.text_input("Name (author)", max_chars=100)
-
-        # Toggle emoji picker
-        show_emoji = st.checkbox("➕ Add Emoji?")
-        emoji = ""
-        if show_emoji:
-            emoji = st.selectbox("Choose an emoji", ["🚀", "🤘", "🌴", "💡", "❗", "📢", "✅", "🎯", "🧠", "🗄️", "🔧", ""])
-
         submitted = st.form_submit_button("Submit")
+
         if submitted:
             if not name.strip() or (not red_text.strip() and not normal_text.strip()):
                 st.warning("Please fill name and at least one message field.")
             else:
-                try:
-                    india_time = datetime.now(timezone("Asia/Kolkata"))
-                    log_date = india_time.strftime('%Y-%m-%d')
-                    log_time = india_time.strftime('%H:%M hrs')
-
-                    conn = sqlite3.connect(db_path)
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text, name, emoji)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (tab_choice, log_date, log_time, red_text.strip(), normal_text.strip(), name.strip(), emoji))
-                    conn.commit()
-                    conn.close()
-                    st.success("✅ Entry added successfully!")
-                    st.experimental_rerun()
-                except Exception as e:
-                    st.error(f"❌ Failed to add entry: {e}")
+                india_time = datetime.now(timezone("Asia/Kolkata"))
+                log_date = india_time.strftime('%Y-%m-%d')
+                log_time = india_time.strftime('%H:%M hrs')
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text, name)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (tab_choice, log_date, log_time, red_text.strip(), normal_text.strip(), name.strip()))
+                conn.commit()
+                conn.close()
+                st.success("✅ Entry added successfully!")
+                st.experimental_rerun()
