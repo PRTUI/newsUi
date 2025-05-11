@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 
 # Set default layout and title
-st.set_page_config(page_title="12OAD Status")
+st.set_page_config(page_title="12OAD Live")
 
 # Styling: Dark mode + professional fonts
 st.markdown("""
@@ -40,7 +40,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Heading
-st.markdown("### Related Products by Industry → **12OAD Status**")
+st.markdown("**12OAD Status**")
 
 # DB file path
 db_path = "status_feed.db"
