@@ -79,17 +79,17 @@ tabs = st.tabs(["Live Updates", "Leaves", "Upgrade", "➕ Add Entry"])
 
 # --- Tab 1: Live Updates ---
 with tabs[0]:
-    st.subheader("Live Updates")
+    #st.subheader("Live Updates")
     render_timeline("live")
 
 # --- Tab 2: Leaves ---
 with tabs[1]:
-    st.subheader("Leaves")
+    #st.subheader("Leaves")
     render_timeline("leaves")
 
 # --- Tab 3: Upgrade ---
 with tabs[2]:
-    st.subheader("Upgrade")
+    #st.subheader("Upgrade")
     render_timeline("upgrade")
 
 # --- Tab 4: Add Entry ---
