@@ -9,7 +9,7 @@ st.markdown("### Related Products by Industry → **12OAD Status**")
 # DB path
 db_path = "status_feed_v2.db"
 
-# --- Styling ---
+# --- CSS Styling ---
 st.markdown("""
     <style>
         .stApp {
@@ -18,18 +18,17 @@ st.markdown("""
             font-family: 'Segoe UI', sans-serif;
         }
         .log-entry {
+            background-color: #1e1e1e;
+            border-radius: 8px;
             padding: 10px;
-            margin-bottom: 8px;
-            border-radius: 4px;
+            margin-bottom: 10px;
             font-size: 15px;
         }
         .log-red {
-            background-color: #D32F2F;
-            color: white;
+            background-color: #D32F2F !important;
         }
         .log-normal {
-            background-color: #1e1e1e;
-            color: white;
+            background-color: #1e1e1e !important;
         }
         .log-date {
             background: white;
@@ -54,7 +53,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- DB logic ---
+# --- DB functions ---
 def get_reactions(message_id):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -101,33 +100,30 @@ def render_timeline(tab_key):
         st.markdown(f"<div class='log-entry {style_class}'>", unsafe_allow_html=True)
         st.markdown(f"<b>{log_time}:</b> {message}", unsafe_allow_html=True)
 
-        col1, col2 = st.columns([0.9, 0.1])
+        col1, col2, col3 = st.columns([0.75, 0.10, 0.15])
         with col1:
             st.markdown(f"<div class='author-row'><span>{name}</span></div>", unsafe_allow_html=True)
         with col2:
+            with st.expander("➕", expanded=False):
+                emoji = st.selectbox(
+                    "", ["👍", "❤️", "😂", "🎉", "🔥", "🚀", "👏", "✅", "❗", "🧠", "🙏", "🤘"], key=f"emoji_{message_id}"
+                )
+                state_key = f"reacted_{message_id}_{emoji}"
+                if not st.session_state.get(state_key):
+                    if st.button("React", key=f"react_btn_{message_id}_{emoji}"):
+                        add_reaction(message_id, emoji)
+                        st.session_state[state_key] = True
+                else:
+                    st.caption("✅ Already reacted.")
+        with col3:
             if st.button("✖", key=f"del_{message_id}"):
                 delete_entry(message_id)
 
-        # Reactions
         reactions = get_reactions(message_id)
         if reactions:
             row = " ".join([f"{emoji} × {count}" for emoji, count in reactions])
             st.markdown(f"<div class='reaction-row'>{row}</div>", unsafe_allow_html=True)
 
-        # Emoji picker
-        with st.expander("➕ React", expanded=False):
-            emoji = st.selectbox(
-                "Choose an emoji",
-                ["👍", "❤️", "😂", "🎉", "🔥", "🚀", "👏", "✅", "❗", "🧠", "🙏", "🤘"],
-                key=f"emoji_{message_id}"
-            )
-            state_key = f"reacted_{message_id}_{emoji}"
-            if not st.session_state.get(state_key):
-                if st.button("React", key=f"react_btn_{message_id}_{emoji}"):
-                    add_reaction(message_id, emoji)
-                    st.session_state[state_key] = True
-            else:
-                st.caption("✅ You already reacted with this emoji.")
         st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Tabs ---
