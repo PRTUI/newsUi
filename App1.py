@@ -1,48 +1,72 @@
 import streamlit as st
+import sqlite3
 import pandas as pd
 
-st.set_page_config(page_title="12oad", layout="centered")
-st.markdown("<h2 style='text-align:center;'>📁 12oad</h2>", unsafe_allow_html=True)
+# Page Setup
+st.set_page_config(layout="wide")
+st.markdown("**12OAD Status**")
 
-folder_names = st.session_state.get("folders", ["Projects", "Leaves"])
-with st.sidebar:
-    st.markdown("### Folders")
-    for folder in folder_names:
-        if st.button(folder):
-            st.session_state['selected_folder'] = folder
-    new_folder = st.text_input("➕ Add Folder")
-    if st.button("Create") and new_folder:
-        folder_names.append(new_folder)
-        st.session_state["folders"] = folder_names
+# Tabs
+tabs = st.tabs(["Live Updates", "Leaves", "Upgrade"])
 
-selected_folder = st.session_state.get("selected_folder", "Leaves")
-st.markdown(f"<h4 style='color:gray;'>Opened Folder: {selected_folder}</h4>", unsafe_allow_html=True)
+# --- Live Updates Tab ---
+with tabs[0]:
+    #st.subheader("Live Updates")
+    products = [
+        {"desc": "10MHz, Quad, Precision Op Amp"},
+        {"desc": "30V Input, 1A Output, Synchronous Buck Regulator"},
+        {"desc": "ATA6560"},
+        {"desc": "MIC4605 Half-Bridge Driver"},
+    ]
+    for product in products:
+        with st.container():
+            st.markdown(product["desc"])
+            st.markdown("---")
 
-if selected_folder == "Leaves":
-    uploaded_file = st.file_uploader("Upload 'entry.xlsx'", type=["xlsx"])
+# --- Leaves Tab ---
+with tabs[1]:
+    st.subheader("Leaves")
 
-    if uploaded_file:
-        df = pd.read_excel(uploaded_file)
+    try:
+        # Connect to SQLite DB
+        conn = sqlite3.connect("leaves.db")
+        df = pd.read_sql_query("SELECT * FROM leaves_log ORDER BY log_date DESC, log_time DESC", conn)
 
-        if {'Timestamp', 'RedText', 'NormalText'}.issubset(df.columns):
-            df['Date'] = pd.to_datetime(df['Timestamp']).dt.strftime('%d %B %Y')
-            df['Time'] = pd.to_datetime(df['Timestamp']).dt.strftime('%H:%M')
-            grouped = df.groupby('Date')
+        current_date = None
+        for _, row in df.iterrows():
+            if row['log_date'] != current_date:
+                current_date = row['log_date']
+                st.markdown(
+                    f"<div style='margin-top:20px; font-weight:bold; background:white; color:black; padding:5px; width:fit-content;'>{current_date}</div>",
+                    unsafe_allow_html=True
+                )
 
-            for date, group in grouped:
-                st.markdown(f"<div style='padding:6px 0;font-weight:bold;font-size:16px;background:#fff;color:#000;border-radius:4px;width:fit-content;margin-top:20px;'>{date}</div>", unsafe_allow_html=True)
-
-                for _, row in group.iterrows():
-                    time = row['Time']
-                    red_text = str(row['RedText'])
-                    normal_text = str(row['NormalText'])
-
-                    st.markdown(f"""
-                    <div style='background:#111;padding:12px;border-radius:6px;margin:6px 0;'>
-                        <div style='color:red;font-weight:bold'>{time}</div>
-                        <div style='color:red;'>{red_text}</div>
-                        <div style='color:white;'>{normal_text}</div>
+            if row['red_text']:
+                st.markdown(
+                    f"""
+                    <div style="background-color:#D32F2F; color:white; padding:10px; margin-bottom:5px;">
+                        <b>{row['log_time']}</b><br>{row['red_text']}
                     </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.error("Excel must contain columns: 'Timestamp', 'RedText', and 'NormalText'")
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f"""
+                    <div style="background-color:#111; color:white; padding:10px; margin-bottom:5px;">
+                        <b>{row['log_time']}</b><br>{row['normal_text']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+        conn.close()
+
+    except Exception as e:
+        st.error("⚠️ SQLite database `leaves.db` is missing or cannot be loaded.")
+
+# --- Upgrade Tab ---
+with tabs[2]:
+    st.subheader("Upgrade")
+    st.write("Access premium folders, features, and analytics.")
+
