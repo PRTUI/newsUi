@@ -7,7 +7,7 @@ st.set_page_config(page_title="12OAD Status")
 st.markdown("### Related Products by Industry → **12OAD Status**")
 
 # DB path
-db_path = "status_feed_reactions_final.db"
+db_path = "status_feed_v2.db"
 
 # --- Styling ---
 st.markdown("""
