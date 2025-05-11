@@ -4,11 +4,14 @@ import pandas as pd
 from datetime import datetime
 from pytz import timezone
 
-# ---------- CONFIG ----------
-st.set_page_config(page_title="Status")
-st.markdown("### Related Products by Industry → **Status**")
+# Setup
+st.set_page_config(page_title=" Status")
+st.markdown("### Related Products by Industry → ** Status**")
 
-# ---------- STYLE ----------
+# DB path
+db_path = "status_feed_v2.db"
+
+# CSS Styling
 st.markdown("""
     <style>
         .stApp {
@@ -39,18 +42,18 @@ st.markdown("""
             width: fit-content;
             border-radius: 3px;
         }
-        .author {
+        .author-row {
             font-size: 12px;
             color: #cccccc;
-            padding-top: 4px;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# ---------- DB PATH ----------
-db_path = "status_feed_v2.db"
-
-# ---------- RENDER TIMELINE ----------
+# Load entries
 def render_timeline(tab_key):
     try:
         conn = sqlite3.connect(db_path)
@@ -74,18 +77,21 @@ def render_timeline(tab_key):
                     f"""
                     <div class='log-entry {style_class}'>
                         <b>{row['log_time']}:</b> {message}
-                        <div class='author'>{row['name']}</div>
+                        <div class='author-row'>
+                            <span>{row['name']}</span>
+                            <span>{row['emoji'] or ''}</span>
+                        </div>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
             with col2:
-                if st.button("🗑️", key=f"del_{row['id']}"):
+                if st.button("✖", key=f"del_{row['id']}", help="Delete"):
                     delete_entry(row['id'])
+
     except Exception as e:
         st.error("⚠️ Could not load or query the database.")
 
-# ---------- DELETE ENTRY ----------
 def delete_entry(entry_id):
     try:
         conn = sqlite3.connect(db_path)
@@ -98,14 +104,14 @@ def delete_entry(entry_id):
     except Exception as e:
         st.error(f"❌ Failed to delete entry: {e}")
 
-# ---------- TABS ----------
+# Tabs
 tabs = st.tabs(["Live Updates", "Leaves", "Upgrade", "➕ Add Entry"])
 
 with tabs[0]: st.subheader("Live Updates"); render_timeline("live")
 with tabs[1]: st.subheader("Leaves"); render_timeline("leaves")
 with tabs[2]: st.subheader("Upgrade"); render_timeline("upgrade")
 
-# ---------- ADD ENTRY FORM ----------
+# Add Entry with emoji toggle
 with tabs[3]:
     st.subheader("Add New Entry")
 
@@ -113,10 +119,15 @@ with tabs[3]:
         tab_choice = st.selectbox("Select Tab", ["live", "leaves", "upgrade"])
         red_text = st.text_area("Red Text (optional)")
         normal_text = st.text_area("Normal Text (optional)")
-        emoji = st.selectbox("Pick an Emoji", ["😄", "🔥", "🚀", "👍", "🤘", "💡", "🎉", "❗", "📢", "✅", ""])
         name = st.text_input("Name (author)", max_chars=100)
-        submitted = st.form_submit_button("Submit")
 
+        # Toggle emoji picker
+        show_emoji = st.checkbox("➕ Add Emoji?")
+        emoji = ""
+        if show_emoji:
+            emoji = st.selectbox("Choose an emoji", ["🚀", "🤘", "🌴", "💡", "❗", "📢", "✅", "🎯", "🧠", "🗄️", "🔧", ""])
+
+        submitted = st.form_submit_button("Submit")
         if submitted:
             if not name.strip() or (not red_text.strip() and not normal_text.strip()):
                 st.warning("Please fill name and at least one message field.")
@@ -126,18 +137,12 @@ with tabs[3]:
                     log_date = india_time.strftime('%Y-%m-%d')
                     log_time = india_time.strftime('%H:%M hrs')
 
-                    # Attach emoji
-                    if red_text:
-                        red_text = f"{emoji} {red_text.strip()}"
-                    if normal_text:
-                        normal_text = f"{emoji} {normal_text.strip()}"
-
                     conn = sqlite3.connect(db_path)
                     cursor = conn.cursor()
                     cursor.execute("""
-                        INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text, name)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (tab_choice, log_date, log_time, red_text, normal_text, name.strip()))
+                        INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text, name, emoji)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (tab_choice, log_date, log_time, red_text.strip(), normal_text.strip(), name.strip(), emoji))
                     conn.commit()
                     conn.close()
                     st.success("✅ Entry added successfully!")
