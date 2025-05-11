@@ -1,11 +1,14 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+from datetime import datetime
 
-# Set default layout and title
+# Setup
 st.set_page_config(page_title="12OAD Live")
 
-# Styling: Dark mode + professional fonts
+st.markdown("**12OAD Live**")
+
+# Style: dark mode, clean font, smaller name text
 st.markdown("""
     <style>
         .stApp {
@@ -15,7 +18,7 @@ st.markdown("""
         }
         .log-entry {
             padding: 10px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             border-radius: 4px;
             font-size: 15px;
         }
@@ -36,16 +39,17 @@ st.markdown("""
             width: fit-content;
             border-radius: 3px;
         }
+        .author {
+            font-size: 12px;
+            color: #cccccc;
+            padding-top: 4px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# Heading
-st.markdown("**12OAD Status**")
+# DB path
+db_path = "status_feed_v2.db"
 
-# DB file path
-db_path = "status_feed.db"
-
-# Function to render entries for a tab
 def render_timeline(tab_key):
     try:
         conn = sqlite3.connect(db_path)
@@ -60,61 +64,54 @@ def render_timeline(tab_key):
                 current_date = row['log_date']
                 st.markdown(f"<div class='log-date'>{current_date}</div>", unsafe_allow_html=True)
 
-            if row['red_text']:
-                st.markdown(
-                    f"<div class='log-entry log-red'><b>{row['log_time']}:</b> {row['red_text']}</div>",
-                    unsafe_allow_html=True
-                )
-            elif row['normal_text']:
-                st.markdown(
-                    f"<div class='log-entry log-normal'><b>{row['log_time']}:</b> {row['normal_text']}</div>",
-                    unsafe_allow_html=True
-                )
+            message = row['red_text'] or row['normal_text']
+            style_class = "log-red" if row['red_text'] else "log-normal"
+
+            st.markdown(
+                f"""
+                <div class='log-entry {style_class}'>
+                    <b>{row['log_time']}:</b> {message}
+                    <div class='author'>{row['name']}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
     except Exception as e:
-        st.error("⚠️ Could not load or query `status_feed.db`.")
+        st.error("⚠️ Could not load or query the database.")
 
 # Tabs
 tabs = st.tabs(["Live Updates", "Leaves", "Upgrade", "➕ Add Entry"])
 
-# --- Tab 1: Live Updates ---
-with tabs[0]:
-    #st.subheader("Live Updates")
-    render_timeline("live")
+with tabs[0]: render_timeline("live")
+with tabs[1]: render_timeline("leaves")
+with tabs[2]: render_timeline("upgrade")
 
-# --- Tab 2: Leaves ---
-with tabs[1]:
-    #st.subheader("Leaves")
-    render_timeline("leaves")
-
-# --- Tab 3: Upgrade ---
-with tabs[2]:
-    #st.subheader("Upgrade")
-    render_timeline("upgrade")
-
-# --- Tab 4: Add Entry ---
+# Add Entry Form
 with tabs[3]:
-    st.subheader("Add New Entry to Timeline")
+    st.subheader("Add New Entry")
 
     with st.form("add_entry_form"):
         tab_choice = st.selectbox("Select Tab", ["live", "leaves", "upgrade"])
-        log_date = st.date_input("Date")
-        log_time = st.text_input("Time (e.g., 14:30 hrs)")
-        red_text = st.text_area("Red Text (leave blank if not applicable)")
-        normal_text = st.text_area("Normal Text (leave blank if not applicable)")
+        red_text = st.text_area("Red Text (optional)")
+        normal_text = st.text_area("Normal Text (optional)")
+        name = st.text_input("Name (author)", max_chars=100)
         submitted = st.form_submit_button("Submit")
 
         if submitted:
-            if not log_time or (not red_text and not normal_text):
-                st.warning("Please provide at least time and one message (red or normal).")
+            if not name.strip() or (not red_text.strip() and not normal_text.strip()):
+                st.warning("Please fill name and at least one message field.")
             else:
                 try:
+                    now = datetime.now()
+                    log_date = now.strftime('%Y-%m-%d')
+                    log_time = now.strftime('%H:%M hrs')
                     conn = sqlite3.connect(db_path)
                     cursor = conn.cursor()
                     cursor.execute("""
-                        INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (tab_choice, log_date.isoformat(), log_time, red_text.strip(), normal_text.strip()))
+                        INSERT INTO status_log (tab, log_date, log_time, red_text, normal_text, name)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (tab_choice, log_date, log_time, red_text.strip(), normal_text.strip(), name.strip()))
                     conn.commit()
                     conn.close()
                     st.success("✅ Entry added successfully!")
