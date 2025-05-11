@@ -3,12 +3,11 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 
-# Setup
-st.set_page_config(page_title="12OAD Live")
+st.set_page_config(page_title="Live")
 
-st.markdown("**12OAD Live**")
+st.markdown("### Related Products by Industry → **Live**")
 
-# Style: dark mode, clean font, smaller name text
+# Styling
 st.markdown("""
     <style>
         .stApp {
@@ -21,6 +20,7 @@ st.markdown("""
             margin-bottom: 8px;
             border-radius: 4px;
             font-size: 15px;
+            position: relative;
         }
         .log-red {
             background-color: #D32F2F;
@@ -54,7 +54,7 @@ def render_timeline(tab_key):
     try:
         conn = sqlite3.connect(db_path)
         df = pd.read_sql_query(
-            f"SELECT * FROM status_log WHERE tab = '{tab_key}' ORDER BY log_date DESC, log_time DESC", conn
+            f"SELECT * FROM status_log WHERE tab = '{tab_key}' ORDER BY log_date DESC, log_time DESC, id DESC", conn
         )
         conn.close()
 
@@ -67,18 +67,34 @@ def render_timeline(tab_key):
             message = row['red_text'] or row['normal_text']
             style_class = "log-red" if row['red_text'] else "log-normal"
 
-            st.markdown(
-                f"""
-                <div class='log-entry {style_class}'>
-                    <b>{row['log_time']}:</b> {message}
-                    <div class='author'>{row['name']}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            col1, col2 = st.columns([0.95, 0.05])
+            with col1:
+                st.markdown(
+                    f"""
+                    <div class='log-entry {style_class}'>
+                        <b>{row['log_time']}:</b> {message}
+                        <div class='author'>{row['name']}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            with col2:
+                if st.button("🗑️", key=f"del_{row['id']}"):
+                    delete_entry(row['id'])
 
     except Exception as e:
         st.error("⚠️ Could not load or query the database.")
+
+def delete_entry(entry_id):
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM status_log WHERE id = ?", (entry_id,))
+        conn.commit()
+        conn.close()
+        st.experimental_rerun()
+    except Exception as e:
+        st.error(f"❌ Failed to delete entry: {e}")
 
 # Tabs
 tabs = st.tabs(["Live Updates", "Leaves", "Upgrade", "➕ Add Entry"])
@@ -115,5 +131,6 @@ with tabs[3]:
                     conn.commit()
                     conn.close()
                     st.success("✅ Entry added successfully!")
+                    st.experimental_rerun()
                 except Exception as e:
                     st.error(f"❌ Failed to add entry: {e}")
