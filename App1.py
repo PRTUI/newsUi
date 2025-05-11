@@ -5,8 +5,8 @@ from datetime import datetime
 from pytz import timezone
 
 # ---------- CONFIG ----------
-st.set_page_config(page_title="12OAD Status")
-st.markdown("### Related Products by Industry → **12OAD Status**")
+st.set_page_config(page_title="Status")
+st.markdown("### Related Products by Industry → **Status**")
 
 # ---------- STYLE ----------
 st.markdown("""
@@ -48,7 +48,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------- DB PATH ----------
-db_path = "status_feed_v2_india.db"
+db_path = "status_feed_v2.db"
 
 # ---------- RENDER TIMELINE ----------
 def render_timeline(tab_key):
